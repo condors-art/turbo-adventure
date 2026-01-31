@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Renovaciones</title>
+
+<style>
+:root{
+  --bg:#020617;
+  --card:#0f172a;
+  --accent:#22c55e;
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:system-ui;
+  background:radial-gradient(circle at top,#020617,#000);
+  color:var(--text);
+  padding:16px;
+}
+
+.container{
+  max-width:480px;
+  margin:auto;
+}
+
+.card{
+  background:linear-gradient(145deg,#020617,#0f172a);
+  border-radius:18px;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.6);
+}
+
+h1{
+  font-size:20px;
+  margin:0 0 6px;
+}
+
+small{color:var(--muted)}
+
+input,select,button{
+  width:100%;
+  padding:12px;
+  margin-top:8px;
+  border-radius:12px;
+  border:none;
+  background:#020617;
+  color:var(--text);
+  font-size:14px;
+}
+
+button{
+  cursor:pointer;
+  font-weight:600;
+}
+
+button.primary{
+  background:var(--accent);
+  color:#022c22;
+}
+
+.tabs{
+  display:flex;
+  gap:8px;
+}
+
+.tabs button{
+  flex:1;
+  background:#020617;
+  border:1px solid #1f2937;
+}
+
+.tabs button.active{
+  background:var(--accent);
+  color:#022c22;
+}
+
+.client{
+  background:#020617;
+  border-radius:14px;
+  padding:12px;
+  margin-top:10px;
+}
+
+.client-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.client small{
+  display:block;
+  font-size:12px;
+}
+
+.send{
+  width:auto;
+  padding:8px 14px;
+  font-size:13px;
+  background:var(--accent);
+  color:#022c22;
+  border-radius:10px;
+}
+
+.renew{
+  margin-top:6px;
+}
+
+.hidden{display:none}
+
+.empty{
+  text-align:center;
+  color:var(--muted);
+  padding:12px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<div class="card">
+  <h1>📅 Panel de Clientes</h1>
+  <small id="fechaHoy"></small>
+</div>
+
+<!-- TABS -->
+<div class="card tabs">
+  <button id="btnRenovaciones" class="active" onclick="mostrar('renovaciones')">Renovaciones</button>
+  <button id="btnTodos" onclick="mostrar('todos')">Todos</button>
+</div>
+
+<!-- RENOVACIONES -->
+<div class="card" id="vistaRenovaciones"></div>
+
+<!-- TODOS -->
+<div class="card hidden" id="vistaTodos"></div>
+
+<!-- AGREGAR -->
+<div class="card">
+  <h1>➕ Agregar cliente</h1>
+
+  <input id="nombre" placeholder="Nombre del cliente">
+  <input id="numero" placeholder="WhatsApp (569xxxxxxxx)">
+  <input id="servicio" placeholder="Servicio (Netflix, Spotify...)">
+  <input id="fecha" type="date">
+
+  <button class="primary" onclick="guardar()">Guardar cliente</button>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
+const SUPABASE_KEY = "TU_ANON_PUBLIC_KEY";
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let clientes = [];
+
+async function cargarClientes(){
+  const { data, error } = await db
+    .from("clientes")
+    .select("*")
+    .order("fecha", { ascending: true });
+
+  if(error){
+    alert("Error cargando clientes");
+    console.error(error);
+    return;
+  }
+
+  clientes = data;
+  render();
+}
+
+const hoy = new Date().toISOString().split("T")[0];
+document.getElementById("fechaHoy").innerText = hoy;
+
+const btnRenovaciones = document.getElementById("btnRenovaciones");
+const btnTodos = document.getElementById("btnTodos");
+const vistaRenovaciones = document.getElementById("vistaRenovaciones");
+const vistaTodos = document.getElementById("vistaTodos");
+
+function mostrar(vista){
+  document.getElementById("vistaRenovaciones").classList.add("hidden");
+  document.getElementById("vistaTodos").classList.add("hidden");
+  btnRenovaciones.classList.remove("active");
+  btnTodos.classList.remove("active");
+
+  if(vista==="renovaciones"){
+    vistaRenovaciones.classList.remove("hidden");
+    btnRenovaciones.classList.add("active");
+  }else{
+    vistaTodos.classList.remove("hidden");
+    btnTodos.classList.add("active");
+  }
+}
+
+async function guardar(){
+  if(!nombre.value || !numero.value || !servicio.value || !fecha.value){
+    alert("Completa todos los campos");
+    return;
+  }
+
+  const { error } = await db
+    .from("clientes")
+    .insert([{
+      nombre: nombre.value,
+      numero: numero.value,
+      servicio: servicio.value,
+      fecha: fecha.value
+    }]);
+
+  if(error){
+    alert("Error al guardar");
+    console.error(error);
+    return;
+  }
+
+  nombre.value = numero.value = servicio.value = fecha.value = "";
+  cargarClientes(); // 👈 vuelve a leer desde Supabase
+}
+
+
+function enviar(numero,nombre){
+  const msg=`Hola ${nombre} 👋 Tu suscripción vence hoy. ¿Deseas renovar?`;
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`,"_blank");
+}
+
+async function renovar(i, meses){
+  let f = new Date(clientes[i].fecha);
+  f.setMonth(f.getMonth() + meses);
+
+  const nuevaFecha = f.toISOString().split("T")[0];
+
+  const { error } = await db
+    .from("clientes")
+    .update({ fecha: nuevaFecha })
+    .eq("id", clientes[i].id);
+
+  if(error){
+    alert("Error al renovar");
+    console.error(error);
+    return;
+  }
+
+  cargarClientes();
+}
+
+function cardCliente(c,i){
+  return `
+  <div class="client">
+    <div class="client-header">
+      <div>
+        <strong>${c.nombre}</strong>
+        <small>${c.numero}</small>
+        <small>${c.servicio}</small>
+        <small>Vence: ${c.fecha}</small>
+      </div>
+      <button class="send" onclick="enviar('${c.numero}','${c.nombre}')">Enviar</button>
+    </div>
+    <select class="renew" onchange="renovar(${i},parseInt(this.value))">
+      <option value="">Renovar…</option>
+      <option value="1">+1 mes</option>
+      <option value="2">+2 meses</option>
+      <option value="3">+3 meses</option>
+    </select>
+  </div>`;
+}
+
+function render(){
+  vistaRenovaciones.innerHTML="";
+  vistaTodos.innerHTML="";
+
+  clientes.forEach((c,i)=>{
+    vistaTodos.innerHTML+=cardCliente(c,i);
+    if(c.fecha===hoy) vistaRenovaciones.innerHTML+=cardCliente(c,i);
+  });
+
+  if(vistaRenovaciones.innerHTML===""){
+    vistaRenovaciones.innerHTML=`<div class="empty">No hay renovaciones hoy 🎉</div>`;
+  }
+}
+
+cargarClientes();
+
+</script>
+</body>
+</html>
